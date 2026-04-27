@@ -1,0 +1,12 @@
+requests
+buildozer
+kivy
+kivymd
+cython
+setuptools
+py-androidbuild
+plyer
+pyjnius
+
+yt-dlp
+# pip install -U yt-dlp
