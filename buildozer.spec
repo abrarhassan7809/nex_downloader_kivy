@@ -4,7 +4,7 @@ package.name = nexdownloader
 package.domain = org.nextech
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
-version = 1.0
+version = 1.01
 
 # Requirements - REMOVED extra packages jo issue create kar rahe the
 requirements = python3, kivy==2.2.1, kivymd, yt-dlp, android, plyer, pyjnius, certifi
