@@ -1,9 +1,3 @@
-import os
-import threading
-import ssl
-import socket
-import uuid
-import sys
 from kivy.utils import platform
 from kivy.clock import mainthread
 from kivy.lang import Builder
@@ -12,14 +6,24 @@ from plyer import notification
 from kivymd.app import MDApp
 from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.card import MDCard
-
+from kivy.core.window import Window
+import os
+import threading
+import ssl
+import socket
+import uuid
+import sys
 import yt_dlp
+
 
 # SSL Fix
 ssl._create_default_https_context = ssl._create_unverified_context
 if platform == 'android':
     from android.permissions import request_permissions, Permission
     from jnius import autoclass
+
+if platform != 'android':
+    Window.size = (400, 700)
 
 
 class MyLogger:
@@ -91,7 +95,7 @@ MDScreen:
             size_hint_y: None
             height: "60dp"
             MDLabel:
-                text: "NexMultiDownload"
+                text: "Nex Multi-Downloader"
                 font_style: "H6"
                 bold: True
                 theme_text_color: "Custom"
@@ -172,6 +176,7 @@ class NexDownloaderApp(MDApp):
     active_tasks = {}
 
     def build(self):
+        self.title = "Nex Multi-Downloader"
         self.theme_cls.theme_style = "Dark"
         return Builder.load_string(KV)
 
@@ -242,7 +247,9 @@ class NexDownloaderApp(MDApp):
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=True)
-                self.update_card(task_id, 100, "Success!", title=info.get('title'))
+                title = info.get('title', 'Video')
+                self.update_card(task_id, 100, "Finished!", title=title)
+                self.send_platform_notification("Download Complete", f"Saved: {title}")
         except Exception as e:
             # Safe checking taake KeyError na aaye
             if task_id in self.active_tasks:
@@ -289,6 +296,12 @@ class NexDownloaderApp(MDApp):
             card.progress, card.status = prog, stat
             if title: card.title = title
 
+    def send_platform_notification(self, title, msg):
+        try:
+            notification.notify(title=title, message=msg, app_name="NexDownloader")
+        except:
+            pass
+
     def get_path(self):
         if platform == 'android':
             try:
@@ -296,7 +309,9 @@ class NexDownloaderApp(MDApp):
                 return os.path.join(context.getExternalMediaDirs()[0].getAbsolutePath(), "NexDownloads")
             except:
                 return os.path.join("/sdcard/Download", "NexDownloads")
-        return "NexDownloads"
+        else:
+            # Windows/Linux/Mac PC path
+            return os.path.join(os.path.expanduser("~"), "Downloads", "NexDownloads")
 
     def toggle_theme(self):
         self.theme_cls.theme_style = "Light" if self.theme_cls.theme_style == "Dark" else "Dark"

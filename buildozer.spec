@@ -1,5 +1,5 @@
 [app]
-title = NexDownloader Pro
+title = Nex Multi-Downloader
 package.name = nexdownloader
 package.domain = org.nextech
 source.dir = .

@@ -10,3 +10,5 @@ pyjnius
 
 yt-dlp
 # pip install -U yt-dlp
+# python -m pywin32_postinstall -install
+# python -m pip install --upgrade pywin32
