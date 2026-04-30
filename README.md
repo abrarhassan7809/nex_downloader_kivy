@@ -72,7 +72,7 @@ cd nex-downloader
 ### 2. Install Dependencies
 
 ```bash
-pip install kivy kivymd yt-dlp plyer
+pip install kivy kivymd yt-dlp plyer pyjnius requests
 ```
 
 ### 3. Run the App
@@ -108,6 +108,8 @@ buildozer android debug
 
 * **Desktop:**
   `~/Downloads/NexDownloads`
+  * Run this command in terminal for build software:
+  `pyinstaller --clean NexDownloader.spec`
 
 ---
 

@@ -222,11 +222,13 @@ class NexDownloaderApp(MDApp):
         path = self.get_path()
         os.makedirs(path, exist_ok=True)
 
+        # User selection check (Video or Audio)
+        download_type = self.root.ids.type_btn.text  # "Video" or "Audio"
+        quality = self.root.ids.qual_btn.text.replace("p", "")  # "720"
+
         def hook(d):
-            # Task check safe tarike se
             task = self.active_tasks.get(task_id)
             if not task or task.get("cancel") or task.get("paused"):
-                # Agar pause ya cancel ho, toh thread ko terminate kar den
                 raise Exception("STOPPED_BY_USER")
 
             if d['status'] == 'downloading':
@@ -240,9 +242,22 @@ class NexDownloaderApp(MDApp):
             'progress_hooks': [hook],
             'logger': MyLogger(),
             'quiet': True,
-            'continuedl': True,  # Resume ke liye zaroori hai
+            'continuedl': True,
             'nocheckcertificate': True,
         }
+
+        if download_type == "Audio":
+            # Force MP3 for Audio
+            opts.update({
+                'format': 'bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+            })
+        else:
+            opts['format'] = f'bestvideo[height<={quality}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
 
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
@@ -250,15 +265,23 @@ class NexDownloaderApp(MDApp):
                 title = info.get('title', 'Video')
                 self.update_card(task_id, 100, "Finished!", title=title)
                 self.send_platform_notification("Download Complete", f"Saved: {title}")
+
         except Exception as e:
-            # Safe checking taake KeyError na aaye
-            if task_id in self.active_tasks:
-                if "STOPPED_BY_USER" in str(e):
-                    # Card ko delete nahi karna, bas status update karna hai
-                    self.update_card(task_id, self.active_tasks[task_id]["card"].progress, "Paused")
-                else:
-                    print(f"Error: {e}")
-                    self.update_card(task_id, 0, "Error / Timeout")
+            error_msg = "Error Occurred"
+            err_str = str(e).lower()
+            if "stopped_by_user" in err_str:
+                error_msg = "Paused"
+            elif "unable to resolve host" in err_str or "network" in err_str:
+                error_msg = "No Internet Connection"
+            elif "not found" in err_str or "extract" in err_str:
+                error_msg = "Invalid or Private Link"
+            elif "ffmpeg" in err_str:
+                error_msg = "FFmpeg missing (for MP3/MP4)"
+            else:
+                error_msg = "Download Failed"
+
+            self.update_card(task_id, 0, error_msg)
+            print(f"Detailed Error: {e}")
 
     def toggle_task(self, tid):
         if tid in self.active_tasks:
