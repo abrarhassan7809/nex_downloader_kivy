@@ -91,6 +91,14 @@ Make sure you have **Buildozer** installed:
 buildozer android debug
 ```
 
+## 📦 Build APK (Desktop)
+
+Make sure you have **PyInstaller** installed:
+
+```bash
+pyinstaller --clean NexDownloader.spec
+```
+
 ---
 
 ## ⚠️ Notes
@@ -108,8 +116,6 @@ buildozer android debug
 
 * **Desktop:**
   `~/Downloads/NexDownloads`
-  * Run this command in terminal for build software:
-  `pyinstaller --clean NexDownloader.spec`
 
 ---
 

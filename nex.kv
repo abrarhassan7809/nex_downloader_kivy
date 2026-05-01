@@ -1,0 +1,279 @@
+<DownloadTaskCard>:
+    orientation: "vertical"
+    size_hint_y: None
+    height: "130dp"
+    padding: "15dp"
+    radius: [20,]
+    md_bg_color: app.card_light
+    elevation: 1.5
+    line_color: [0, 0, 0, 0.05] if app.theme_cls.theme_style == "Light" else [1, 1, 1, 0.1]
+    spacing: "8dp"
+
+    MDBoxLayout:
+        spacing: "10dp"
+        size_hint_y: None
+        height: "40dp"
+        MDLabel:
+            text: root.title
+            bold: True
+            font_style: "Subtitle1"
+            shorten: True
+            theme_text_color: "Custom"
+            text_color: app.text_main
+
+        # Action Buttons
+        MDIconButton:
+            icon: "pause-circle" if root.is_running else "play-circle"
+            theme_icon_color: "Custom"
+            icon_color: app.accent_color
+            on_release: app.toggle_task(root.task_id)
+
+        MDIconButton:
+            icon: "close-circle"
+            theme_icon_color: "Custom"
+            icon_color: [0.5, 0.5, 0.5, 1]
+            on_release: app.cancel_task(root.task_id)
+
+    MDProgressBar:
+        value: root.progress
+        color: app.accent_color
+        height: "6dp"
+
+    MDBoxLayout:
+        MDLabel:
+            text: root.status
+            font_style: "Caption"
+            theme_text_color: "Secondary"
+        MDLabel:
+            text: f"{int(root.progress)}%"
+            halign: "right"
+            theme_text_color: "Custom"
+            text_color: app.text_main
+
+<LibraryItemCard>:
+    orientation: "horizontal"
+    size_hint_y: None
+    height: "90dp"
+    padding: "15dp"
+    spacing: "15dp"
+    radius: [20,]
+    md_bg_color: app.card_light
+    elevation: 1.5
+    shadow_softness: 12
+    line_color: [0, 0, 0, 0.05] if app.theme_cls.theme_style == "Light" else [1, 1, 1, 0.1]
+    on_release: app.play_video(root.file_path)
+
+    MDAnchorLayout:
+        size_hint_x: None
+        width: "60dp"
+        MDIconButton:
+            icon: "play"
+            md_bg_color: app.accent_color
+            theme_icon_color: "Custom"
+            icon_color: [1, 1, 1, 1]
+            size_hint: (None, None)
+            size: "40dp", "40dp"
+
+    MDBoxLayout:
+        orientation: "vertical"
+        pos_hint: {"center_y": .5}
+        MDLabel:
+            text: root.title
+            bold: True
+            font_style: "Subtitle1"
+            shorten: True
+            theme_text_color: "Custom"
+            text_color: app.text_main
+        MDLabel:
+            text: "Offline Media"
+            font_style: "Caption"
+            theme_text_color: "Secondary"
+
+MDScreen:
+    md_bg_color: app.bg_dark
+    MDBoxLayout:
+        orientation: 'vertical'
+
+        MDBoxLayout:
+            size_hint_y: None
+            height: "80dp"
+            padding: ["20dp", 0]
+            MDLabel:
+                text: "Nex [color=#E94560]Multi-Downloader[/color]"
+                markup: True
+                font_style: "H5"
+                bold: True
+                theme_text_color: "Custom"
+                text_color: app.text_main
+            MDIconButton:
+                icon: "brightness-6"
+                pos_hint: {"center_y": .5}
+                theme_icon_color: "Custom"
+                icon_color: app.accent_color
+                on_release: app.toggle_theme()
+
+        MDBottomNavigation:
+            panel_color: app.card_light
+            selected_color_background: [0.91, 0.27, 0.37, 0.1]
+            text_color_active: app.accent_color
+
+            MDBottomNavigationItem:
+                name: 'downloader'
+                text: 'Home'
+                icon: 'home-variant'
+
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    padding: "20dp"
+                    spacing: "20dp"
+
+                    MDCard:
+                        orientation: "vertical"
+                        padding: "20dp"
+                        radius: [25,]
+                        md_bg_color: app.card_light
+                        size_hint_y: None
+                        height: "200dp"
+                        spacing: "15dp"
+                        elevation: 4
+
+                        MDTextField:
+                            id: url_input
+                            hint_text: "YouTube URL..."
+                            mode: "fill"
+                            fill_color_normal: [0, 0, 0, 0.05]
+                            radius: [15, 15, 15, 15]
+                            text_color_normal: app.text_main
+                            hint_text_color_normal: [0.5, 0.5, 0.5, 1]
+
+                        MDBoxLayout:
+                            spacing: "10dp"
+                            MDRaisedButton:
+                                id: type_btn
+                                text: "Video"
+                                on_release: app.type_menu.open()
+                            MDRaisedButton:
+                                id: qual_btn
+                                text: "720p"
+                                on_release: app.quality_menu.open()
+
+                        MDFillRoundFlatButton:
+                            text: "START DOWNLOAD"
+                            size_hint_x: 1
+                            md_bg_color: app.accent_color
+                            on_release: app.add_to_queue()
+
+                    MDScrollView:
+                        MDBoxLayout:
+                            id: task_list
+                            orientation: "vertical"
+                            adaptive_height: True
+                            spacing: "12dp"
+
+            MDBottomNavigationItem:
+                name: 'library'
+                text: 'Library'
+                icon: 'play-circle-outline'
+                on_tab_press: app.load_library()
+
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    padding: "20dp"
+                    MDScrollView:
+                        MDBoxLayout:
+                            id: library_list
+                            orientation: "vertical"
+                            adaptive_height: True
+                            spacing: "12dp"
+
+<VideoPlayerWidget>:
+    orientation: 'vertical'
+    canvas.before:
+        Color:
+            rgba: [0, 0, 0, 1]
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    FloatLayout:
+        size_hint_y: 0.7
+        Video:
+            id: video_instance
+            source: root.source
+            state: 'play'
+            volume: root.volume
+            allow_stretch: True
+            keep_ratio: True
+            on_eos: self.state = 'stop'
+            pos_hint: {"center_x": .5, "center_y": .5}
+
+        MDIconButton:
+            icon: "close"
+            pos_hint: {"top": 0.98, "left": 0.02}
+            theme_icon_color: "Custom"
+            icon_color: [1, 1, 1, 1]
+            md_bg_color: [0, 0, 0, 0.5]
+            on_release: app.video_popup.dismiss()
+
+    MDBoxLayout:
+        orientation: 'vertical'
+        size_hint_y: None
+        height: "140dp"
+        padding: "15dp"
+        md_bg_color: [0, 0, 0, 0.8]
+
+        MDBoxLayout:
+            size_hint_y: None
+            height: "40dp"
+            MDLabel:
+                text: root.current_time
+                size_hint_x: None
+                width: "45dp"
+                theme_text_color: "Custom"
+                text_color: [1, 1, 1, 1]
+            MDSlider:
+                min: 0
+                max: root.duration
+                value: root.position
+                color: app.accent_color
+                on_touch_up: if self.collide_point(*args[1].pos): root.seek_video(self.value)
+            MDLabel:
+                text: root.total_time
+                size_hint_x: None
+                width: "45dp"
+                theme_text_color: "Custom"
+                text_color: [1, 1, 1, 1]
+
+        MDBoxLayout:
+            spacing: "10dp"
+            padding: ["10dp", 0]
+
+            MDIconButton:
+                icon: "pause" if video_instance.state == 'play' else "play"
+                icon_size: "45dp"
+                theme_icon_color: "Custom"
+                icon_color: app.accent_color
+                on_release: root.toggle_play()
+                pos_hint: {"center_y": .5}
+
+            Widget: # Spacer
+
+            MDBoxLayout:
+                size_hint_x: None
+                width: "160dp"
+                spacing: "5dp"
+                pos_hint: {"center_y": .5}
+
+                MDIcon:
+                    icon: "volume-high"
+                    theme_text_color: "Custom"
+                    text_color: [1, 1, 1, 1]
+                    size_hint: None, None
+                    size: "24dp", "24dp"
+                    pos_hint: {"center_y": .5}
+                MDSlider:
+                    min: 0
+                    max: 100
+                    value: root.volume * 100
+                    on_value: root.set_volume(self.value)
+                    pos_hint: {"center_y": .5}

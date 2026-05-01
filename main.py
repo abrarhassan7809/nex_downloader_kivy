@@ -1,5 +1,7 @@
+from kivy.uix.boxlayout import BoxLayout
+from kivy.storage.jsonstore import JsonStore
 from kivy.utils import platform
-from kivy.clock import mainthread
+from kivy.clock import mainthread, Clock
 from kivy.lang import Builder
 from kivy.properties import StringProperty, ColorProperty, NumericProperty
 from plyer import notification
@@ -7,22 +9,21 @@ from kivymd.app import MDApp
 from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.card import MDCard
 from kivy.core.window import Window
+from kivy.uix.popup import Popup
 import os
 import threading
 import ssl
-import socket
 import uuid
-import sys
 import yt_dlp
 
 
+os.environ['KIVY_VIDEO'] = 'ffpyplayer'
 # SSL Fix
 ssl._create_default_https_context = ssl._create_unverified_context
 if platform == 'android':
     from android.permissions import request_permissions, Permission
     from jnius import autoclass
-
-if platform != 'android':
+else:
     Window.size = (400, 700)
 
 
@@ -32,159 +33,117 @@ class MyLogger:
     def error(self, msg): print(f"YT-DLP Error: {msg}")
 
 
-KV = """
-<DownloadTaskCard>:
-    orientation: "vertical"
-    size_hint_y: None
-    height: "140dp"
-    padding: "15dp"
-    radius: [20,]
-    md_bg_color: app.card_color
-    elevation: 2
-    spacing: "8dp"
-
-    MDBoxLayout:
-        size_hint_y: None
-        height: "30dp"
-        MDLabel:
-            text: root.title
-            bold: True
-            theme_text_color: "Custom"
-            text_color: app.text_color
-            shorten: True
-            shorten_from: 'right'
-
-        MDIconButton:
-            icon: "pause-circle" if root.is_running else "play-circle"
-            theme_icon_color: "Custom"
-            icon_color: [0.91, 0.27, 0.37, 1]
-            on_release: app.toggle_task(root.task_id)
-
-        MDIconButton:
-            icon: "close-circle"
-            theme_icon_color: "Custom"
-            icon_color: [0.5, 0.5, 0.5, 1]
-            on_release: app.cancel_task(root.task_id)
-
-    MDProgressBar:
-        value: root.progress
-        color: [0.91, 0.27, 0.37, 1]
-        height: "8dp"
-
-    MDBoxLayout:
-        MDLabel:
-            text: root.status
-            font_style: "Caption"
-            theme_text_color: "Secondary"
-        MDLabel:
-            text: f"{int(root.progress)}%"
-            halign: "right"
-            theme_text_color: "Custom"
-            text_color: app.text_color
-
-MDScreen:
-    md_bg_color: app.bg_color
-
-    MDBoxLayout:
-        orientation: 'vertical'
-        padding: "15dp"
-        spacing: "10dp"
-
-        # Header
-        MDBoxLayout:
-            size_hint_y: None
-            height: "60dp"
-            MDLabel:
-                text: "Nex Multi-Downloader"
-                font_style: "H6"
-                bold: True
-                theme_text_color: "Custom"
-                text_color: [0.91, 0.27, 0.37, 1]
-            MDIconButton:
-                icon: "brightness-6"
-                theme_icon_color: "Custom"
-                icon_color: app.text_color
-                on_release: app.toggle_theme()
-
-        # Input Box
-        MDCard:
-            orientation: "vertical"
-            padding: "15dp"
-            radius: [20,]
-            md_bg_color: app.card_color
-            size_hint_y: None
-            height: "160dp"
-            spacing: "10dp"
-
-            MDBoxLayout:
-                spacing: "5dp"
-                MDTextField:
-                    id: url_input
-                    hint_text: "Paste YouTube Link"
-                    mode: "fill"
-                    fill_color_normal: app.input_bg
-                    text_color_normal: app.text_color
-                    hint_text_color_normal: [0.5, 0.5, 0.5, 1]
-                MDIconButton:
-                    icon: "plus-circle"
-                    icon_size: "35dp"
-                    theme_icon_color: "Custom"
-                    icon_color: [0.91, 0.27, 0.37, 1]
-                    on_release: app.add_to_queue()
-
-            MDBoxLayout:
-                spacing: "10dp"
-                MDRaisedButton:
-                    id: type_btn
-                    text: "Video"
-                    size_hint_x: 1
-                    md_bg_color: app.btn_secondary
-                    on_release: app.type_menu.open()
-                MDRaisedButton:
-                    id: qual_btn
-                    text: "720p"
-                    size_hint_x: 1
-                    md_bg_color: app.btn_secondary
-                    on_release: app.quality_menu.open()
-
-        # Tasks List
-        MDScrollView:
-            MDBoxLayout:
-                id: task_list
-                orientation: "vertical"
-                adaptive_height: True
-                padding: "5dp"
-                spacing: "12dp"
-"""
-
-
 class DownloadTaskCard(MDCard):
     task_id = StringProperty()
     title = StringProperty("Fetching...")
     status = StringProperty("Pending...")
     progress = NumericProperty(0)
-    is_running = NumericProperty(1)  # 1 for running, 0 for paused
+    is_running = NumericProperty(1)  # 1 = Running, 0 = Paused
+
+
+class LibraryItemCard(MDCard):
+    title = StringProperty("")
+    file_path = StringProperty("")
+
+
+class VideoPlayerWidget(BoxLayout):
+    source = StringProperty("")
+    duration = NumericProperty(1)
+    position = NumericProperty(0)
+    current_time = StringProperty("00:00")
+    total_time = StringProperty("00:00")
+    volume = NumericProperty(0.5)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._update_ev = Clock.schedule_interval(self.update_progress, 0.5)
+
+    def update_progress(self, dt):
+        v = self.ids.video_instance
+        if v.duration > 1:
+            self.duration = v.duration
+            self.total_time = self.format_time(v.duration)
+        if v.position >= 0:
+            self.position = v.position
+            self.current_time = self.format_time(v.position)
+
+    def format_time(self, seconds):
+        m, s = divmod(int(max(0, seconds)), 60)
+        return f"{m:02d}:{s:02d}"
+
+    def toggle_play(self):
+        v = self.ids.video_instance
+        v.state = 'pause' if v.state == 'play' else 'play'
+
+    def seek_video(self, value):
+        v = self.ids.video_instance
+        if v.duration > 0:
+            v.seek(value / v.duration)
+
+    def set_volume(self, ui_val):
+        self.volume = ui_val / 100
+        self.ids.video_instance.volume = self.volume
+
+    def cleanup(self):
+        Clock.unschedule(self._update_ev)
+        self.ids.video_instance.state = 'stop'
+        self.ids.video_instance.unload()
 
 
 class NexDownloaderApp(MDApp):
-    bg_color = ColorProperty([0.05, 0.05, 0.05, 1])
-    card_color = ColorProperty([0.12, 0.12, 0.12, 1])
-    text_color = ColorProperty([1, 1, 1, 1])
-    input_bg = ColorProperty([0.15, 0.15, 0.15, 1])
-    btn_secondary = ColorProperty([0.2, 0.2, 0.2, 1])
+    accent_color = ColorProperty([0.91, 0.27, 0.37, 1])
+    bg_dark = ColorProperty([0.02, 0.02, 0.03, 1])
+    card_light = ColorProperty([0.1, 0.1, 0.12, 1])
+    text_main = ColorProperty([1, 1, 1, 1])
 
     active_tasks = {}
 
     def build(self):
         self.title = "Nex Multi-Downloader"
-        self.theme_cls.theme_style = "Dark"
-        return Builder.load_string(KV)
+        self.store = JsonStore('settings.json')
+
+        if self.store.exists('theme'):
+            saved_style = self.store.get('theme')['style']
+            self.theme_cls.theme_style = saved_style
+        else:
+            self.theme_cls.theme_style = "Dark"
+
+        self.apply_theme_colors(self.theme_cls.theme_style)
+        return Builder.load_file('nex.kv')
+
+    def toggle_theme(self):
+        new_style = "Light" if self.theme_cls.theme_style == "Dark" else "Dark"
+        self.theme_cls.theme_style = new_style
+        self.apply_theme_colors(new_style)
+        # Setting save karen
+        self.store.put('theme', style=new_style)
+
+    def apply_theme_colors(self, style):
+        if style == "Light":
+            self.bg_dark = [0.94, 0.94, 0.96, 1]
+            self.card_light = [0.98, 0.98, 1, 1]
+            self.text_main = [0.12, 0.12, 0.15, 1]
+        else:
+            self.bg_dark = [0.02, 0.02, 0.03, 1]
+            self.card_light = [0.1, 0.1, 0.12, 1]
+            self.text_main = [1, 1, 1, 1]
 
     def on_start(self):
         self.setup_menus()
         if platform == 'android':
-            request_permissions(
-                [Permission.INTERNET, Permission.WRITE_EXTERNAL_STORAGE, Permission.READ_EXTERNAL_STORAGE])
+            from android.permissions import request_permissions, Permission
+            def callback(permissions, results):
+                if all(results):
+                    print("All permissions granted")
+                else:
+                    print("Permissions denied")
+
+            request_permissions([
+                Permission.INTERNET,
+                Permission.READ_EXTERNAL_STORAGE,
+                Permission.WRITE_EXTERNAL_STORAGE
+            ], callback)
+        self.load_library()
 
     def setup_menus(self):
         t_items = [{"text": i, "viewclass": "OneLineListItem", "on_release": lambda x=i: self.set_type(x)} for i in
@@ -202,15 +161,21 @@ class NexDownloaderApp(MDApp):
         self.root.ids.qual_btn.text = val
         self.quality_menu.dismiss()
 
+    def load_library(self):
+        self.root.ids.library_list.clear_widgets()
+        path = self.get_path()
+        if os.path.exists(path):
+            files = [f for f in os.listdir(path) if f.endswith(('.mp4', '.mp3', '.mkv'))]
+            for f in files:
+                self.root.ids.library_list.add_widget(LibraryItemCard(title=f, file_path=os.path.join(path, f)))
+
     def add_to_queue(self):
         url = self.root.ids.url_input.text.strip()
         if not url: return
-
         task_id = str(uuid.uuid4())
         new_card = DownloadTaskCard(task_id=task_id)
         self.root.ids.task_list.add_widget(new_card)
         self.root.ids.url_input.text = ""
-
         self.active_tasks[task_id] = {"cancel": False, "paused": False, "card": new_card, "url": url}
         self.start_download_thread(task_id)
 
@@ -221,67 +186,63 @@ class NexDownloaderApp(MDApp):
     def download_engine(self, url, task_id):
         path = self.get_path()
         os.makedirs(path, exist_ok=True)
-
-        # User selection check (Video or Audio)
-        download_type = self.root.ids.type_btn.text  # "Video" or "Audio"
-        quality = self.root.ids.qual_btn.text.replace("p", "")  # "720"
+        download_type = self.root.ids.type_btn.text
+        quality = self.root.ids.qual_btn.text.replace("p", "")
 
         def hook(d):
             task = self.active_tasks.get(task_id)
-            if not task or task.get("cancel") or task.get("paused"):
+            if not task or task["cancel"] or task["paused"]:
                 raise Exception("STOPPED_BY_USER")
 
             if d['status'] == 'downloading':
                 p = d.get('downloaded_bytes', 0)
                 t = d.get('total_bytes') or d.get('total_bytes_estimate')
-                if t:
-                    self.update_card(task_id, (p / t) * 100, "Downloading...")
+                if t: self.update_card(task_id, (p / t) * 100, "Downloading...")
 
         opts = {
-            'outtmpl': f'{path}/%(title)s.%(ext)s',
+            'outtmpl': f'{path}/%(title).50s.%(ext)s',
+            'restrictfilenames': True,
+            'format': 'best[ext=mp4]/best',
             'progress_hooks': [hook],
             'logger': MyLogger(),
             'quiet': True,
             'continuedl': True,
             'nocheckcertificate': True,
+            'noplaylist': True,
         }
 
+        # opts['format'] wali line ko is se badal den
         if download_type == "Audio":
-            # Force MP3 for Audio
             opts.update({
                 'format': 'bestaudio/best',
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
                     'preferredquality': '192',
-                }],
+                }]
             })
         else:
-            opts['format'] = f'bestvideo[height<={quality}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
+            opts['format'] = 'best[ext=mp4]/best'
 
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
+                info_dict = ydl.extract_info(url, download=False)
+                title = info_dict.get('title', 'Unknown Video')
+                self.update_card(task_id, 0, "Fetching...", title=title)
+
                 info = ydl.extract_info(url, download=True)
-                title = info.get('title', 'Video')
-                self.update_card(task_id, 100, "Finished!", title=title)
-                self.send_platform_notification("Download Complete", f"Saved: {title}")
+                f_name = ydl.prepare_filename(info)
+                if download_type == "Audio": f_name = f_name.rsplit('.', 1)[0] + ".mp3"
 
+                self.update_card(task_id, 100, "Download Complete", title=title)
+                notification.notify(title="Success", message=title)
+                Clock.schedule_once(lambda dt: self.load_library())
         except Exception as e:
-            error_msg = "Error Occurred"
-            err_str = str(e).lower()
-            if "stopped_by_user" in err_str:
-                error_msg = "Paused"
-            elif "unable to resolve host" in err_str or "network" in err_str:
-                error_msg = "No Internet Connection"
-            elif "not found" in err_str or "extract" in err_str:
-                error_msg = "Invalid or Private Link"
-            elif "ffmpeg" in err_str:
-                error_msg = "FFmpeg missing (for MP3/MP4)"
-            else:
-                error_msg = "Download Failed"
-
-            self.update_card(task_id, 0, error_msg)
-            print(f"Detailed Error: {e}")
+            if task_id in self.active_tasks:
+                if "STOPPED_BY_USER" in str(e):
+                    self.update_card(task_id, self.active_tasks[task_id]["card"].progress, "Paused")
+                else:
+                    self.update_card(task_id, 0, "Error: Timeout/Network")
 
     def toggle_task(self, tid):
         if tid in self.active_tasks:
@@ -299,18 +260,11 @@ class NexDownloaderApp(MDApp):
                 task["card"].status = "Pausing..."
 
     def cancel_task(self, tid):
-        """Cancel mein card remove karna hai"""
         if tid in self.active_tasks:
             self.active_tasks[tid]["cancel"] = True
-            # Foran remove na karen, pehle flag set karen taake thread ruk jaye
             card = self.active_tasks[tid]["card"]
             self.root.ids.task_list.remove_widget(card)
-            # Thori dair baad dictionary se delete karen taake KeyError na aaye
-            def delayed_delete(dt):
-                if tid in self.active_tasks:
-                    del self.active_tasks[tid]
-            from kivy.clock import Clock
-            Clock.schedule_once(delayed_delete, 0.5)
+            Clock.schedule_once(lambda dt: self.active_tasks.pop(tid, None), 0.5)
 
     @mainthread
     def update_card(self, tid, prog, stat, title=None):
@@ -336,14 +290,13 @@ class NexDownloaderApp(MDApp):
             # Windows/Linux/Mac PC path
             return os.path.join(os.path.expanduser("~"), "Downloads", "NexDownloads")
 
-    def toggle_theme(self):
-        self.theme_cls.theme_style = "Light" if self.theme_cls.theme_style == "Dark" else "Dark"
-        if self.theme_cls.theme_style == "Light":
-            self.bg_color, self.card_color, self.text_color = [0.95, 0.95, 0.95, 1], [1, 1, 1, 1], [0, 0, 0, 1]
-            self.input_bg, self.btn_secondary = [0.9, 0.9, 0.9, 1], [0.85, 0.85, 0.85, 1]
-        else:
-            self.bg_color, self.card_color, self.text_color = [0.05, 0.05, 0.05, 1], [0.12, 0.12, 0.12, 1], [1, 1, 1, 1]
-            self.input_bg, self.btn_secondary = [0.15, 0.15, 0.15, 1], [0.2, 0.2, 0.2, 1]
+    def play_video(self, path):
+        if not os.path.exists(path): return
+        player = VideoPlayerWidget(source=path)
+        self.video_popup = Popup(title="", content=player, size_hint=(1, 1), background_color=[0, 0, 0, 1],
+                                 separator_height=0)
+        self.video_popup.bind(on_dismiss=lambda x: player.cleanup())
+        self.video_popup.open()
 
 
 if __name__ == "__main__":

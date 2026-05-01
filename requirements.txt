@@ -12,3 +12,10 @@ yt-dlp
 # pip install -U yt-dlp
 # python -m pywin32_postinstall -install
 # python -m pip install --upgrade pywin32
+
+#install this for video player
+ffpyplayer
+
+# install this for ubuntu
+# sudo apt install python3-dbus
+# sudo apt install libnotify-bin
