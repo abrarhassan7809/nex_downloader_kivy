@@ -11,6 +11,7 @@ from kivymd.uix.card import MDCard
 from kivy.core.window import Window
 from kivy.uix.popup import Popup
 import os
+import sys
 import threading
 import ssl
 import uuid
@@ -90,6 +91,14 @@ class VideoPlayerWidget(BoxLayout):
         self.ids.video_instance.unload()
 
 
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+
 class NexDownloaderApp(MDApp):
     accent_color = ColorProperty([0.91, 0.27, 0.37, 1])
     bg_dark = ColorProperty([0.02, 0.02, 0.03, 1])
@@ -100,7 +109,8 @@ class NexDownloaderApp(MDApp):
 
     def build(self):
         self.title = "Nex Multi-Downloader"
-        self.store = JsonStore('settings.json')
+        settings_path = os.path.join(self.user_data_dir, 'settings.json')
+        self.store = JsonStore(settings_path)
 
         if self.store.exists('theme'):
             saved_style = self.store.get('theme')['style']
@@ -109,7 +119,8 @@ class NexDownloaderApp(MDApp):
             self.theme_cls.theme_style = "Dark"
 
         self.apply_theme_colors(self.theme_cls.theme_style)
-        return Builder.load_file('nex.kv')
+        kv_file = resource_path('nex.kv')
+        return Builder.load_file(kv_file)
 
     def toggle_theme(self):
         new_style = "Light" if self.theme_cls.theme_style == "Dark" else "Dark"

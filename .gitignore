@@ -5,3 +5,6 @@ bin
 NexDownloads
 __pycache__
 .idea
+build
+dist
+settings.json

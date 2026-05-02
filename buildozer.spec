@@ -5,6 +5,7 @@ package.domain = org.nextech
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
 version = 1.01
+icon.filename = assets/nexdownloader-icon.ico
 
 # Requirements - REMOVED extra packages jo issue create kar rahe the
 requirements = python3, kivy==2.3.0, kivymd==1.2.0, yt-dlp, requests, android, plyer, pyjnius, certifi, urllib3, idna, charset-normalizer, ffmpeg, ffpyplayer
